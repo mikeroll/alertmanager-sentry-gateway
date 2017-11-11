@@ -1,0 +1,8 @@
+package: github.com/summerwind/alertmanager-sentry-gateway
+import:
+  - package: github.com/spf13/cobra
+    version: 7be4beda01ec05d0b93d80b3facd2b6f44080d94
+  - package: github.com/getsentry/raven-go
+    version: d3909e6151a9d4ce1baed14ceb3ad7a835f7c91f
+  - package: github.com/prometheus/alertmanager
+    version: 133c888ef3644b47a52acbaeffb09f4cc637df1b

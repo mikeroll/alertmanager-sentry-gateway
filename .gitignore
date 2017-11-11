@@ -1,0 +1,4 @@
+*.DS_Store
+sentry-gateway
+dist/
+vendor/
