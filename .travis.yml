@@ -1,0 +1,17 @@
+language: go
+go:
+  - 1.9.x
+install:
+  - go get github.com/Masterminds/glide
+script:
+  - make test
+before_deploy:
+  - make dist
+deploy:
+  provider: releases
+  api-key: $GITHUB_TOKEN
+  file_glob: true
+  file: dist/*
+  skip_cleanup: true
+  on:
+    tags: true
