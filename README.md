@@ -55,6 +55,6 @@ To enable Alertmanager to send alerts to this gateway you need to configure a we
 receivers:
 - name: team
   webhook_configs:
-  - url: 'http://127.0.0.1:9096/sentry'
+  - url: 'http://127.0.0.1:9096'
     send_resolved: false
 ```
