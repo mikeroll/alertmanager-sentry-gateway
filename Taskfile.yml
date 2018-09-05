@@ -4,7 +4,6 @@ vars:
   NAME: alertmanager-sentry-gateway
   VERSION: 0.2.0
   COMMIT: {sh: git rev-parse --verify HEAD}
-  PACKAGES: {sh: go list ./...}
   BUILD_FLAGS: -ldflags "-X main.VERSION={{.VERSION}} -X main.COMMIT={{.COMMIT}}"
 
 tasks:
@@ -13,8 +12,8 @@ tasks:
       - go build .
   test:
     cmds:
-      - go vet {{.PACKAGES}}
-      - go test -v -coverprofile=cover.out {{.PACKAGES}}
+      - go vet ./...
+      - go test -v -coverprofile=cover.out ./...
   cover:
     deps: [test]
     cmds:
