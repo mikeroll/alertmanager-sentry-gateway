@@ -16,10 +16,11 @@ $ docker pull summerwind/alertmanager-sentry-gateway:latest
 
 ### Building binary yourself
 
-To build the binary you need to install [Go](https://golang.org/) and [Glide](https://github.com/Masterminds/glide).
+To build the binary you need to install [Go](https://golang.org/), [dep](https://github.com/golang/dep) and [task](https://github.com/go-task/task).
 
 ```
-$ make
+$ task vendor
+$ task build
 ```
 
 ## Usage
@@ -27,7 +28,7 @@ $ make
 Sentry's DSN is required to run this gateway.
 
 ```
-$ sentry-gateway --dsn ${SENTRY_DSN}
+$ alertmanager-sentry-gateway --dsn ${SENTRY_DSN}
 ```
 
 Event body of Sentry can be customized with a template file as follows. The data passed to the template file is an [Alert](https://godoc.org/github.com/prometheus/alertmanager/template#Alert) of Alertmanager.
@@ -44,7 +45,7 @@ Labels:
 {{ end }}
 ```
 ```
-$ sentry-gateway --dsn ${SENTRY_DSN} --template template.tmpl
+$ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --template template.tmpl
 ```
 
 ## Alertmanager Configuration
