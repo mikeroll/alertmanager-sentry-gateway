@@ -13,8 +13,8 @@ tasks:
       - go build .
   test:
     cmds:
-      - go vet . {{.PACKAGES}}
-      - go test -coverprofile=cover.out {{.PACKAGES}} .
+      - go vet {{.PACKAGES}}
+      - go test -v -coverprofile=cover.out {{.PACKAGES}}
   cover:
     deps: [test]
     cmds:
