@@ -1,0 +1,50 @@
+version: '2'
+
+vars:
+  NAME: alertmanager-sentry-gateway
+  VERSION: 0.1.0
+  COMMIT: {sh: git rev-parse --verify HEAD}
+  PACKAGES: {sh: go list ./...}
+  BUILD_FLAGS: -ldflags "-X main.VERSION={{.VERSION}} -X main.COMMIT={{.COMMIT}}"
+
+tasks:
+  build:
+    cmds:
+      - go build .
+  test:
+    cmds:
+      - go vet . {{.PACKAGES}}
+      - go test -coverprofile=cover.out {{.PACKAGES}} .
+  cover:
+    deps: [test]
+    cmds:
+      - go tool cover -html=cover.out
+  package:
+    cmds:
+      - GOOS={{.OS}} GOARCH={{.ARCH}} go build {{.BUILD_FLAGS}} .
+      - tar -czf dist/{{.NAME}}_{{.OS}}_{{.ARCH}}.tar.gz {{.NAME}}
+      - rm -rf {{.NAME}}
+  dist:
+    deps: [test]
+    cmds:
+      - mkdir -p dist
+      - task: package
+        vars: {OS: "linux", ARCH: "amd64"}
+      - task: package
+        vars: {OS: "linux", ARCH: "arm64"}
+      - task: package
+        vars: {OS: "linux", ARCH: "arm"}
+      - task: package
+        vars: {OS: "darwin", ARCH: "amd64"}
+  container:
+    deps: [test]
+    cmds:
+      - GOARCH=amd64 GOOS=linux go build {{.BUILD_FLAGS}} .
+      - docker build -t summerwind/{{.NAME}}:latest -t summerwind/{{.NAME}}:{{.VERSION}} .
+      - rm -rf {{.NAME}}
+  vendor:
+    cmds:
+      - dep ensure -v
+  clean:
+    cmds:
+      - rm -rf {{.NAME}} dist cover.out

@@ -1,4 +1,5 @@
 *.DS_Store
+cover.out
 sentry-gateway
 dist/
 vendor/
