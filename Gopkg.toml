@@ -1,0 +1,16 @@
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  version = "v0.0.3"
+
+[[override]]
+  name = "github.com/spf13/pflag"
+  version = "v1.0.2"
+
+[[constraint]]
+  name = "github.com/prometheus/alertmanager"
+  version = "0.15.2"
+
+[[constraint]]
+  name = "github.com/getsentry/raven-go"
+  revision = "084a9de9eb0361fbd5ded14b55c84e5493a5d7f6"
+
