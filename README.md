@@ -23,6 +23,13 @@ $ task vendor
 $ task build
 ```
 
+### Building a docker image yourself
+If you don't want to deal with go-specific stuff and just want a docker image:
+```
+$ docker build -t <tag> .
+```
+
+
 ## Usage
 
 Sentry's DSN is required to run this gateway.
