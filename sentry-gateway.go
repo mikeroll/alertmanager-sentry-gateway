@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,6 +42,7 @@ func main() {
 	cmd.Flags().StringP("dsn", "d", "", "Sentry DSN")
 	cmd.Flags().StringP("environment", "e", "", "Sentry Environment")
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
+	cmd.Flags().StringArrayP("fingerprint-templates", "f", []string{}, "List of templates to use as Sentry event fingerprint")
 	cmd.Flags().StringP("addr", "a", "", "Address to listen on for WebHook")
 	cmd.Flags().Bool("version", false, "Display version information and exit")
 
@@ -107,11 +109,26 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	t := template.New("").Option("missingkey=zero")
-	t.Funcs(template.FuncMap(amt.DefaultFuncs))
-	t, err = t.Parse(tmpl)
+	t, err := createTemplate(tmpl)
 	if err != nil {
 		return err
+	}
+
+	fingerprintTemplates, err := cmd.Flags().GetStringArray("fingerprint-templates")
+	if err != nil {
+		return err
+	}
+	if len(fingerprintTemplates) == 0 {
+		fingerprintTemplates = strings.Split(os.Getenv("SENTRY_GATEWAY_FINGERPRINT_TEMPLATES"), ",")
+	}
+
+	var fpTemplates []*template.Template
+	for _, templateString := range fingerprintTemplates {
+		fpTemplate, err := createTemplate(templateString)
+		if err != nil {
+			return err
+		}
+		fpTemplates = append(fpTemplates, fpTemplate)
 	}
 
 	hookChan := make(chan *notify.WebhookMessage)
@@ -145,7 +162,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	go worker(hookChan, t)
+	go worker(hookChan, t, fpTemplates)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -167,7 +184,37 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func worker(hookChan chan *notify.WebhookMessage, t *template.Template) {
+func createTemplate(templateString string) (*template.Template, error) {
+	t := template.New("").Option("missingkey=zero")
+	t.Funcs(template.FuncMap(amt.DefaultFuncs))
+	return t.Parse(templateString)
+}
+
+func getEventTags(alert amt.Alert) []raven.Tag {
+	var tags []raven.Tag
+	for _, label := range alert.Labels.SortedPairs() {
+		tags = append(tags, raven.Tag{Key: label.Name, Value: label.Value})
+	}
+	return tags
+}
+
+func getEventFingerprint(alert amt.Alert, fingerprintTemplates []*template.Template) []string {
+	var fingerprint []string
+	for _, fpTemplate := range fingerprintTemplates {
+		var fp bytes.Buffer
+
+		err := fpTemplate.Execute(&fp, alert)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid fingerprint template: %s\n", err)
+			continue
+		}
+
+		fingerprint = append(fingerprint, fp.String())
+	}
+	return fingerprint
+}
+
+func worker(hookChan chan *notify.WebhookMessage, t *template.Template, fingerprintTemplates []*template.Template) {
 	for wh := range hookChan {
 		for _, alert := range wh.Alerts {
 			var buf bytes.Buffer
@@ -179,10 +226,12 @@ func worker(hookChan chan *notify.WebhookMessage, t *template.Template) {
 			}
 
 			packet := &raven.Packet{
-				Timestamp: raven.Timestamp(alert.StartsAt),
-				Message:   buf.String(),
-				Extra:     map[string]interface{}{},
-				Logger:    "alertmanager",
+				Timestamp:   raven.Timestamp(alert.StartsAt),
+				Message:     buf.String(),
+				Extra:       map[string]interface{}{},
+				Logger:      "alertmanager",
+				Tags:        getEventTags(alert),
+				Fingerprint: getEventFingerprint(alert, fingerprintTemplates),
 			}
 
 			eventID, ch := raven.Capture(packet, alert.Labels)
