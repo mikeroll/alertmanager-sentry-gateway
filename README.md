@@ -32,11 +32,15 @@ $ docker build -t <tag> .
 
 ## Usage
 
-Sentry's DSN is required to run this gateway.
+Sentry's DSN is required to run this gateway. Optionally, an environment may be specified.
 
 ```
-$ alertmanager-sentry-gateway --dsn ${SENTRY_DSN}
+$ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --environment ${SENTRY_ENVIRONMENT}
 ```
+
+If you prefer configuration via environment variables, exporting `SENTRY_DSN` and `SENTRY_ENVIRONMENT` to the process will have the same effect - you can then omit the cli arguments entirely.
+
+
 
 Event body of Sentry can be customized with a template file as follows. The data passed to the template file is an [Alert](https://godoc.org/github.com/prometheus/alertmanager/template#Alert) of Alertmanager.
 
@@ -53,6 +57,12 @@ Labels:
 ```
 ```
 $ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --template template.tmpl
+```
+
+Alternatively, provide a `SENTRY_EVENT_TEMPLATE` variable with the template string:
+```
+$ export SENTRY_EVENT_TEMPLATE="{{ .Labels.alertname }} - {{ .Labels.instance }}"
+$ alertmanager-sentry-gateway
 ```
 
 ## Alertmanager Configuration
