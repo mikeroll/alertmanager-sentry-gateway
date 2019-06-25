@@ -27,7 +27,8 @@ var (
 )
 
 const (
-	defaultTemplate = "{{ .Labels.alertname }} - {{ .Labels.instance }}\n{{ .Annotations.description }}"
+	defaultTemplate   = "{{ .Labels.alertname }} - {{ .Labels.instance }}\n{{ .Annotations.description }}"
+	defaultListenAddr = "0.0.0.0:9096"
 )
 
 func main() {
@@ -38,8 +39,9 @@ func main() {
 	}
 
 	cmd.Flags().StringP("dsn", "d", "", "Sentry DSN")
+	cmd.Flags().StringP("environment", "e", "", "Sentry Environment")
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
-	cmd.Flags().StringP("addr", "a", "0.0.0.0:9096", "Address to listen on for WebHook")
+	cmd.Flags().StringP("addr", "a", "", "Address to listen on for WebHook")
 	cmd.Flags().Bool("version", false, "Display version information and exit")
 
 	cmd.SilenceUsage = true
@@ -67,23 +69,18 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if dsn != "" {
+		raven.SetDSN(dsn)
+	} else if os.Getenv("SENTRY_DSN") == "" {
+		return errors.New("Sentry DSN is required")
+	}
 
 	tmplPath, err := cmd.Flags().GetString("template")
 	if err != nil {
 		return err
 	}
 
-	addr, err := cmd.Flags().GetString("addr")
-	if err != nil {
-		return err
-	}
-
-	if dsn == "" {
-		return errors.New("Sentry DSN required")
-	}
-	raven.SetDSN(dsn)
-
-	tmpl := defaultTemplate
+	var tmpl string
 	if tmplPath != "" {
 		file, err := ioutil.ReadFile(tmplPath)
 		if err != nil {
@@ -91,6 +88,23 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 
 		tmpl = string(file)
+	} else if envTmpl := os.Getenv("SENTRY_GATEWAY_TEMPLATE"); envTmpl != "" {
+		tmpl = envTmpl
+	} else {
+		tmpl = defaultTemplate
+	}
+
+	addr, err := cmd.Flags().GetString("addr")
+	if err != nil {
+		return err
+	}
+
+	if addr == "" {
+		if envAddr := os.Getenv("SENTRY_GATEWAY_ADDR"); envAddr != "" {
+			addr = envAddr
+		} else {
+			addr = defaultListenAddr
+		}
 	}
 
 	t := template.New("").Option("missingkey=zero")
