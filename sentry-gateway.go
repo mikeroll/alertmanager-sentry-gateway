@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -43,6 +44,7 @@ func main() {
 	cmd.Flags().StringP("environment", "e", "", "Sentry Environment")
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
 	cmd.Flags().StringArrayP("fingerprint-templates", "f", []string{}, "List of templates to use as Sentry event fingerprint")
+	cmd.Flags().BoolP("dumb-timestamps", "s", false, "Whether to use time.Now instead of alert StartsAt/EndsAt")
 	cmd.Flags().StringP("addr", "a", "", "Address to listen on for WebHook")
 	cmd.Flags().Bool("version", false, "Display version information and exit")
 
@@ -131,6 +133,16 @@ func run(cmd *cobra.Command, args []string) error {
 		fpTemplates = append(fpTemplates, fpTemplate)
 	}
 
+	dumbTimestamps, err := cmd.Flags().GetBool("dumb-timestamps")
+	if err != nil {
+		return err
+	}
+	if !cmd.Flags().Changed("dumb-timestamps") {
+		if envDT, err := strconv.ParseBool(os.Getenv("SENTRY_GATEWAY_DUMB_TIMESTAMPS")); err == nil {
+			dumbTimestamps = envDT
+		}
+	}
+
 	hookChan := make(chan *notify.WebhookMessage)
 
 	mux := http.NewServeMux()
@@ -162,7 +174,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	go worker(hookChan, t, fpTemplates)
+	go worker(hookChan, t, fpTemplates, dumbTimestamps)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -190,6 +202,17 @@ func createTemplate(templateString string) (*template.Template, error) {
 	return t.Parse(templateString)
 }
 
+func getEventTimestamp(alert amt.Alert, dumb bool) raven.Timestamp {
+	if dumb {
+		return raven.Timestamp(time.Now())
+	}
+
+	return raven.Timestamp(map[string]time.Time{
+		"firing":   alert.StartsAt,
+		"resolved": alert.EndsAt,
+	}[alert.Status])
+}
+
 func getEventTags(alert amt.Alert) []raven.Tag {
 	var tags []raven.Tag
 	for _, label := range alert.Labels.SortedPairs() {
@@ -214,7 +237,12 @@ func getEventFingerprint(alert amt.Alert, fingerprintTemplates []*template.Templ
 	return fingerprint
 }
 
-func worker(hookChan chan *notify.WebhookMessage, t *template.Template, fingerprintTemplates []*template.Template) {
+func worker(
+	hookChan chan *notify.WebhookMessage,
+	t *template.Template,
+	fingerprintTemplates []*template.Template,
+	dumbTimestamps bool,
+) {
 	for wh := range hookChan {
 		for _, alert := range wh.Alerts {
 			var buf bytes.Buffer
@@ -226,9 +254,12 @@ func worker(hookChan chan *notify.WebhookMessage, t *template.Template, fingerpr
 			}
 
 			packet := &raven.Packet{
-				Timestamp:   raven.Timestamp(alert.StartsAt),
-				Message:     buf.String(),
-				Extra:       map[string]interface{}{},
+				Timestamp: getEventTimestamp(alert, dumbTimestamps),
+				Message:   buf.String(),
+				Extra: map[string]interface{}{
+					"starts_at": alert.StartsAt,
+					"ends_at":   alert.EndsAt,
+				},
 				Logger:      "alertmanager",
 				Tags:        getEventTags(alert),
 				Fingerprint: getEventFingerprint(alert, fingerprintTemplates),
