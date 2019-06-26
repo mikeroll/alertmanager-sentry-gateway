@@ -65,6 +65,16 @@ $ export SENTRY_EVENT_TEMPLATE="{{ .Labels.alertname }} - {{ .Labels.instance }}
 $ alertmanager-sentry-gateway
 ```
 
+
+### Event fingerprinting
+An Sentry event's fingerprint defines the properties of that event that shall be used to tell if multiple events belong to the same group. The fingerprints of outgoing events may be controlled via `--fingerprint-templates`/`SENTRY_GATEWAY_FINGERPRINT_TEMPLATES`, which are used similiarly to the message template. For example:
+```
+$ alertmanager-sentry-gateway --fingerprint-templates "{{ .Labels.instance }}" "{{ .Labels.alertname }}"
+```
+will cause events with the same `alertname` and `instance` labels to be grouped into a single issue.
+If `--fingerprint-templates` is not supplied, Sentry's default algorithm is used.
+
+
 ## Alertmanager Configuration
 
 To enable Alertmanager to send alerts to this gateway you need to configure a webhook in Alertmanager.
