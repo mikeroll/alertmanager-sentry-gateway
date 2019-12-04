@@ -6,12 +6,15 @@ alertmanager-sentry-gateway is a webhook gateway for [Alertmanager](https://gith
 
 ### Just want the binary?
 
-Go to the [releases page](https://github.com/summerwind/alertmanager-sentry-gateway/releases), find the version you want, and download the tarball file.
+Go to the [releases page](https://github.com/mikeroll/alertmanager-sentry-gateway/releases), find the version you want, and download the tarball file.
 
 ### Run as container?
-
 ```
-$ docker pull summerwind/alertmanager-sentry-gateway:latest
+# <= v0.3.0
+$ docker pull summerwind/alertmanager-sentry-gateway:<tag>
+
+# >= v0.4.0
+$ docker pull mikeroll/alertmanager-sentry-gateway:<tag>
 ```
 
 ### Building binary yourself
