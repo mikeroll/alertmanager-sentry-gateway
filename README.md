@@ -40,8 +40,15 @@ $ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --environment ${SENTRY_ENVIRON
 
 If you prefer configuration via environment variables, exporting `SENTRY_DSN` and `SENTRY_ENVIRONMENT` to the process will have the same effect - you can then omit the cli arguments entirely.
 
+### DSN proxying
+It is possible to support forwarding events to any Sentry DSN (as opposed to locking the gateway into a single one via `SENTRY_DSN`). To enable such DSN proxying, provide the base url of the target Sentry instance via `--sentry-url`/`SENTRY_URL`. Gateway url can the be specified as follows, similar to a "real" DSN:  
+```
+<gateway_scheme>//<project_secret>@<gateway_host>/<project_id>
+```
+E.g. given `SENTRY_URL=https://my.hosted.sentry:8000/`, with the gateway running at `http://sentry.gateway:9096/`, the gateway url should be given as `http://a1b2c3d4e5f6@sentry.gateway:9096/42` and the corresponding DSN will be reconstructed as `https://a1b2c3d4e5f6@my.hosted.sentry:8000/42`.
 
 
+### Event body
 Event body of Sentry can be customized with a template file as follows. The data passed to the template file is an [Alert](https://godoc.org/github.com/prometheus/alertmanager/template#Alert) of Alertmanager.
 
 ```
