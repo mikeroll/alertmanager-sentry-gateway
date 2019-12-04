@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -41,6 +42,7 @@ func main() {
 	}
 
 	cmd.Flags().StringP("dsn", "d", "", "Sentry DSN")
+	cmd.Flags().StringP("sentry-url", "u", "", "Sentry URL")
 	cmd.Flags().StringP("environment", "e", "", "Sentry Environment")
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
 	cmd.Flags().StringArrayP("fingerprint-templates", "f", []string{}, "List of templates to use as Sentry event fingerprint")
@@ -58,6 +60,11 @@ func main() {
 	}
 }
 
+type gatewayRequest struct {
+	dsn     string
+	message *notify.WebhookMessage
+}
+
 func run(cmd *cobra.Command, args []string) error {
 	v, err := cmd.Flags().GetBool("version")
 	if err != nil {
@@ -69,14 +76,24 @@ func run(cmd *cobra.Command, args []string) error {
 		os.Exit(0)
 	}
 
-	dsn, err := cmd.Flags().GetString("dsn")
+	defaultDSN, err := cmd.Flags().GetString("dsn")
 	if err != nil {
 		return err
 	}
-	if dsn != "" {
-		raven.SetDSN(dsn)
-	} else if os.Getenv("SENTRY_DSN") == "" {
-		return errors.New("Sentry DSN is required")
+	if defaultDSN == "" {
+		defaultDSN = os.Getenv("SENTRY_DSN")
+	}
+
+	sentryURL, err := cmd.Flags().GetString("sentry-url")
+	if err != nil {
+		return err
+	}
+	if sentryURL == "" {
+		sentryURL = os.Getenv("SENTRY_URL")
+	}
+
+	if defaultDSN == "" && sentryURL == "" {
+		return errors.New("one of `dsn,sentry-url` is required")
 	}
 
 	tmplPath, err := cmd.Flags().GetString("template")
@@ -143,10 +160,18 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	hookChan := make(chan *notify.WebhookMessage)
+	hookChan := make(chan gatewayRequest)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		dsn := defaultDSN
+
+		if sentry, err := url.Parse(sentryURL); sentryURL != "" && err == nil {
+			if token, _, ok := r.BasicAuth(); ok && r.URL.Path != "/" {
+				dsn = fmt.Sprintf("%s://%s@%s%s", sentry.Scheme, token, sentry.Host, r.URL.Path)
+			}
+		}
+
 		var wh notify.WebhookMessage
 
 		decoder := json.NewDecoder(r.Body)
@@ -158,7 +183,7 @@ func run(cmd *cobra.Command, args []string) error {
 			return
 		}
 
-		hookChan <- &wh
+		hookChan <- gatewayRequest{dsn, &wh}
 	})
 
 	s := &http.Server{
@@ -238,12 +263,27 @@ func getEventFingerprint(alert amt.Alert, fingerprintTemplates []*template.Templ
 }
 
 func worker(
-	hookChan chan *notify.WebhookMessage,
+	hookChan chan gatewayRequest,
 	t *template.Template,
 	fingerprintTemplates []*template.Template,
 	dumbTimestamps bool,
 ) {
-	for wh := range hookChan {
+	ravenClients := map[string]*raven.Client{}
+
+	for req := range hookChan {
+		dsn, wh := req.dsn, req.message
+
+		client := ravenClients[dsn]
+		if client == nil {
+			if newClient, err := raven.NewClient(dsn, map[string]string{}); err == nil {
+				ravenClients[dsn] = newClient
+				client = newClient
+			} else {
+				fmt.Fprintf(os.Stderr, "Could not init Sentry client: %s\n", err)
+				continue
+			}
+		}
+
 		for _, alert := range wh.Alerts {
 			var buf bytes.Buffer
 
@@ -265,7 +305,7 @@ func worker(
 				Fingerprint: getEventFingerprint(alert, fingerprintTemplates),
 			}
 
-			eventID, ch := raven.Capture(packet, alert.Labels)
+			eventID, ch := client.Capture(packet, alert.Labels)
 			<-ch
 
 			log.Printf("event_id:%s alert_name:%s\n", eventID, alert.Labels["alertname"])
