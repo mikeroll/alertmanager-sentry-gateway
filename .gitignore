@@ -2,4 +2,3 @@
 cover.out
 alertmanager-sentry-gateway
 dist/
-vendor/

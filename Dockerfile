@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine as builder
+FROM golang:1.13-alpine as builder
 
 ARG BUILD_FLAGS
 
@@ -6,14 +6,14 @@ RUN apk add --no-cache curl git && \
     curl -sS https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 WORKDIR $GOPATH/src/alertmanager-sentry-gateway
-ADD Gopkg.toml Gopkg.lock ./
-RUN dep ensure -vendor-only -v
+ADD go.mod go.sum ./
+RUN go mod vendor
 ADD sentry-gateway.go ./
 RUN sh -xc "GOARCH=amd64 GOOS=linux go build ${BUILD_FLAGS}"
 
 
 FROM alpine:3.7
-LABEL maintainer="Moto Ishizawa <summerwind.jp>"
+LABEL maintainer="Pavel Tumik <pavel.tumik@gmail.com>"
 
 COPY --from=builder /go/src/alertmanager-sentry-gateway/alertmanager-sentry-gateway /bin
 
