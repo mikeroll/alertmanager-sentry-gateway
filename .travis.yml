@@ -15,7 +15,7 @@ before_deploy:
   - task dist
 deploy: 
   provider: releases
-  token: $GITHUB_TOKEN
+  token: $TRAVIS_GITHUB_TOKEN
   file_glob: true
   file: dist/*
   cleanup: false
