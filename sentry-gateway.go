@@ -18,8 +18,7 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	"github.com/prometheus/alertmanager/notify"
-	amt "github.com/prometheus/alertmanager/template"
+	amtemplate "github.com/prometheus/alertmanager/template"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -64,7 +63,7 @@ func main() {
 type gatewayRequest struct {
 	dsn     string
 	env     string
-	message *notify.WebhookMessage
+	message *amtemplate.Data
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -203,8 +202,7 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		var wh notify.WebhookMessage
-
+		wh := amtemplate.Data{}
 		decoder := json.NewDecoder(r.Body)
 		defer r.Body.Close()
 
@@ -256,11 +254,11 @@ func run(cmd *cobra.Command, args []string) error {
 
 func createTemplate(templateString string) (*template.Template, error) {
 	t := template.New("").Option("missingkey=zero")
-	t.Funcs(template.FuncMap(amt.DefaultFuncs))
+	t.Funcs(template.FuncMap(amtemplate.DefaultFuncs))
 	return t.Parse(templateString)
 }
 
-func getEventTimestamp(alert amt.Alert, dumb bool) time.Time {
+func getEventTimestamp(alert amtemplate.Alert, dumb bool) time.Time {
 	if dumb {
 		return time.Now()
 	}
@@ -271,7 +269,7 @@ func getEventTimestamp(alert amt.Alert, dumb bool) time.Time {
 	}[alert.Status])
 }
 
-func getEventTags(alert amt.Alert) map[string]string {
+func getEventTags(alert amtemplate.Alert) map[string]string {
 	tags := make(map[string]string)
 	for _, label := range alert.Labels.SortedPairs() {
 		tags[label.Name] = label.Value
@@ -279,7 +277,7 @@ func getEventTags(alert amt.Alert) map[string]string {
 	return tags
 }
 
-func getEventFingerprint(alert amt.Alert, fingerprintTemplates []*template.Template) []string {
+func getEventFingerprint(alert amtemplate.Alert, fingerprintTemplates []*template.Template) []string {
 	var fingerprint []string
 	for _, fpTemplate := range fingerprintTemplates {
 		var fp bytes.Buffer
