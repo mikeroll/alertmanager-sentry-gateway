@@ -2,7 +2,7 @@
 
 alertmanager-sentry-gateway is a webhook gateway for [Alertmanager](https://github.com/prometheus/alertmanager). This gateway receives webhooks from Alertmanager and sends alert information as an event to [Sentry](https://sentry.io).
 
-## Install
+## Install 
 
 ### Just want the binary?
 
