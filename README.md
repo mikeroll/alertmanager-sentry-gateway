@@ -15,6 +15,9 @@ $ docker pull summerwind/alertmanager-sentry-gateway:<tag>
 
 # >= v0.4.0
 $ docker pull mikeroll/alertmanager-sentry-gateway:<tag>
+
+# >= v0.5.0
+$ docker pull paveltumik/alertmanager-sentry-gateway:<tag>
 ```
 
 ### Building binary yourself
@@ -49,6 +52,12 @@ It is possible to support forwarding events to any Sentry DSN (as opposed to loc
 <gateway_scheme>//<project_secret>@<gateway_host>/<project_id>
 ```
 E.g. given `SENTRY_URL=https://my.hosted.sentry:8000/`, with the gateway running at `http://sentry.gateway:9096/`, the gateway url should be given as `http://a1b2c3d4e5f6@sentry.gateway:9096/42` and the corresponding DSN will be reconstructed as `https://a1b2c3d4e5f6@my.hosted.sentry:8000/42`.
+
+### Sentry environment
+Default environment is taken from argument `environment` or from env variable `SENTRY_ENVIRONMENT`.  
+If you are using DSN proxying, then there is also a way to specify environment via url path:
+`http://a1b2c3d4e5f6@sentry.gateway:9096/42/my_environment`
+Replace `my_environment` with any other valid string, and gateway will pass that environment with event.
 
 
 ### Event body

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,9 +17,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/getsentry/raven-go"
+	sentry "github.com/getsentry/sentry-go"
 	"github.com/prometheus/alertmanager/notify"
 	amt "github.com/prometheus/alertmanager/template"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +49,7 @@ func main() {
 	cmd.Flags().BoolP("dumb-timestamps", "s", false, "Whether to use time.Now instead of alert StartsAt/EndsAt")
 	cmd.Flags().StringP("addr", "a", "", "Address to listen on for WebHook")
 	cmd.Flags().Bool("version", false, "Display version information and exit")
+	cmd.Flags().Bool("debug", false, "Enable debug output")
 
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
@@ -62,6 +63,7 @@ func main() {
 
 type gatewayRequest struct {
 	dsn     string
+	env     string
 	message *notify.WebhookMessage
 }
 
@@ -76,12 +78,30 @@ func run(cmd *cobra.Command, args []string) error {
 		os.Exit(0)
 	}
 
+	debug, err := cmd.Flags().GetBool("debug")
+	if err != nil {
+		return err
+	}
+	if debug {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	log.Info("Starting up...")
+
 	defaultDSN, err := cmd.Flags().GetString("dsn")
 	if err != nil {
 		return err
 	}
 	if defaultDSN == "" {
 		defaultDSN = os.Getenv("SENTRY_DSN")
+	}
+
+	defaultEnv, err := cmd.Flags().GetString("environment")
+	if err != nil {
+		return err
+	}
+	if defaultEnv == "" {
+		defaultEnv = os.Getenv("SENTRY_ENVIRONMENT")
 	}
 
 	sentryURL, err := cmd.Flags().GetString("sentry-url")
@@ -165,10 +185,21 @@ func run(cmd *cobra.Command, args []string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		dsn := defaultDSN
+		env := defaultEnv
 
 		if sentry, err := url.Parse(sentryURL); sentryURL != "" && err == nil {
 			if token, _, ok := r.BasicAuth(); ok && r.URL.Path != "/" {
-				dsn = fmt.Sprintf("%s://%s@%s%s", sentry.Scheme, token, sentry.Host, r.URL.Path)
+				params := strings.Split(r.URL.Path, "/")
+				if len(params) == 2 {
+					dsn = fmt.Sprintf("%s://%s@%s%s", sentry.Scheme, token, sentry.Host, r.URL.Path)
+					log.Debugf("dsn: %s, url: %s", dsn, r.URL.Path)
+				} else if len(params) == 3 {
+					dsn = fmt.Sprintf("%s://%s@%s/%s", sentry.Scheme, token, sentry.Host, params[1])
+					env = params[2]
+					log.Debugf("dsn: %s, url: %s, env: %s", dsn, r.URL.Path, env)
+				} else {
+					log.Errorf("Unknown number of params in url string: %s, params: %v, len: %d", r.URL.Path, params, len(params))
+				}
 			}
 		}
 
@@ -183,13 +214,15 @@ func run(cmd *cobra.Command, args []string) error {
 			return
 		}
 
-		hookChan <- gatewayRequest{dsn, &wh}
+		hookChan <- gatewayRequest{dsn, env, &wh}
 	})
 
 	s := &http.Server{
 		Addr:    addr,
 		Handler: mux,
 	}
+
+	log.Info("Starting to listen on: ", addr)
 
 	go func() {
 		err := s.ListenAndServe()
@@ -227,21 +260,21 @@ func createTemplate(templateString string) (*template.Template, error) {
 	return t.Parse(templateString)
 }
 
-func getEventTimestamp(alert amt.Alert, dumb bool) raven.Timestamp {
+func getEventTimestamp(alert amt.Alert, dumb bool) time.Time {
 	if dumb {
-		return raven.Timestamp(time.Now())
+		return time.Now()
 	}
 
-	return raven.Timestamp(map[string]time.Time{
+	return time.Time(map[string]time.Time{
 		"firing":   alert.StartsAt,
 		"resolved": alert.EndsAt,
 	}[alert.Status])
 }
 
-func getEventTags(alert amt.Alert) []raven.Tag {
-	var tags []raven.Tag
+func getEventTags(alert amt.Alert) map[string]string {
+	tags := make(map[string]string)
 	for _, label := range alert.Labels.SortedPairs() {
-		tags = append(tags, raven.Tag{Key: label.Name, Value: label.Value})
+		tags[label.Name] = label.Value
 	}
 	return tags
 }
@@ -268,15 +301,18 @@ func worker(
 	fingerprintTemplates []*template.Template,
 	dumbTimestamps bool,
 ) {
-	ravenClients := map[string]*raven.Client{}
+	sentryClients := map[string]*sentry.Client{}
 
 	for req := range hookChan {
-		dsn, wh := req.dsn, req.message
+		dsn, env, wh := req.dsn, req.env, req.message
 
-		client := ravenClients[dsn]
+		client := sentryClients[dsn]
 		if client == nil {
-			if newClient, err := raven.NewClient(dsn, map[string]string{}); err == nil {
-				ravenClients[dsn] = newClient
+			sentryOptions := sentry.ClientOptions{
+				Dsn:         dsn,
+				Environment: env}
+			if newClient, err := sentry.NewClient(sentryOptions); err == nil {
+				sentryClients[dsn] = newClient
 				client = newClient
 			} else {
 				fmt.Fprintf(os.Stderr, "Could not init Sentry client: %s\n", err)
@@ -293,26 +329,31 @@ func worker(
 				continue
 			}
 
-			packet := &raven.Packet{
-				Timestamp: getEventTimestamp(alert, dumbTimestamps),
-				Message:   buf.String(),
-				Extra: map[string]interface{}{
-					"starts_at": alert.StartsAt,
-					"ends_at":   alert.EndsAt,
-				},
-				Logger:      "alertmanager",
-				Tags:        getEventTags(alert),
-				Fingerprint: getEventFingerprint(alert, fingerprintTemplates),
+			event := sentry.NewEvent()
+			event.Message = buf.String()
+			event.Timestamp = getEventTimestamp(alert, dumbTimestamps)
+			event.Extra["starts_at"] = alert.StartsAt
+			event.Extra["ends_at"] = alert.EndsAt
+			event.Logger = "alertmanager"
+			event.Tags = getEventTags(alert)
+			event.Fingerprint = getEventFingerprint(alert, fingerprintTemplates)
+
+			eventID := client.CaptureEvent(event, nil, nil)
+			if eventID != nil {
+				log.Printf("event_id:%s alert_name:%s\n", *eventID, alert.Labels["alertname"])
+			} else {
+				log.Errorf("Sentry capture event was dropped")
 			}
-
-			eventID, ch := client.Capture(packet, alert.Labels)
-			<-ch
-
-			log.Printf("event_id:%s alert_name:%s\n", eventID, alert.Labels["alertname"])
 		}
 	}
 }
 
 func version() {
 	fmt.Printf("Version: %s (%s)\n", VERSION, COMMIT)
+}
+
+func init() {
+	log.SetFormatter(&log.TextFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
 }
