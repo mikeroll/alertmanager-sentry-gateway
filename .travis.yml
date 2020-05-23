@@ -15,9 +15,10 @@ before_deploy:
   - task dist
 deploy: 
   provider: releases
-  token: $TRAVIS_GITHUB_TOKEN
+  api_key:
+    secure: jePcPROAm+Fkum2HBP1k3ZPVAJoAmMkTEGYSkx5FRp91c01BUf3j3jW8duBI6own5VOSFB1pYOywLGUfGoD5aYkSnGqfvrf55gj7niIUEO8GO60CLNLjq2pNJZKytHWLDrWH/k3gV1K9a6Zyt8a1we5x3tIicHbB1Wz1wlrraQmhOC22Lh10jMD5mlaUzQ0w49mfxDl/omsR/7BW9ZPoMm82lEPJuklTwZxw7kxFLk1siVzYE+TkX8ilMKqXLJIgNbLoQG+oGzCAxJV3hF1Xqlz9G1V7f+DW2lZbHbZU9oov29eJ84NOSFNi3lRXY69os25grxm9uAauljmf6bPA5bl0q45KGKF9NT0aIIIdjBBBl2X7jpINhx7y0RVpncnVqiOOkUL9JjVq0fx1TzuH8yZ1ogDThY6+DNc7av+LmH+2O/+dB9+vGsnBmMadRx+DS/ZMAPJkT5lORgQEWdlj8wV5/1nXtO+5biSoFqkHl4WtCX93yQqJkPqlNKxnLrvpdccBQ58Jivl37RoeZn7/LkPP3Whf8KnMKw6oACE7RKj3KclMrUOX4bigYUQhW/GaSikTeZLRZN5v6u6SurS45Nrm6fr44ZXUrxJcdkWP3OEALdOPPjnGMPV+7B6quSbnraGlz2zpiR6Rhmizqm8vx6CUrIjVCgrhCtIVSHt/X4c=
   file_glob: true
   file: dist/*
-  cleanup: false
+  skip_cleanup: true
   on:
     tags: true

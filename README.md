@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/sagor999/alertmanager-sentry-gateway.svg?branch=master)](https://travis-ci.org/sagor999/alertmanager-sentry-gateway)
+
 # alertmanager-sentry-gateway
 
 alertmanager-sentry-gateway is a webhook gateway for [Alertmanager](https://github.com/prometheus/alertmanager). This gateway receives webhooks from Alertmanager and sends alert information as an event to [Sentry](https://sentry.io).
