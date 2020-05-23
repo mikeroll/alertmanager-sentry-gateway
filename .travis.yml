@@ -11,7 +11,7 @@ script:
   - task test
 before_deploy:
   - task dist
-deploy:
+deploy: 
   provider: releases
   api-key: $GITHUB_TOKEN
   file_glob: true
