@@ -1,4 +1,6 @@
 language: go
+dist: xenial
+os: linux
 go:
   - "1.13.x"
 before_install:
@@ -13,9 +15,9 @@ before_deploy:
   - task dist
 deploy:
   provider: releases
-  api-key: $GITHUB_TOKEN
+  token: $GITHUB_TOKEN
   file_glob: true
   file: dist/*
-  skip_cleanup: true
+  cleanup: false
   on:
     tags: true
