@@ -1,6 +1,6 @@
 language: go
 go:
-  - "1.11.x"
+  - "1.13.x"
 before_install:
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
   - curl https://raw.githubusercontent.com/go-task/task/master/install-task.sh | sh
