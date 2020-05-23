@@ -2,7 +2,7 @@ version: '2'
 
 vars:
   NAME: alertmanager-sentry-gateway
-  VERSION: 0.3.0
+  VERSION: 0.5.0
   COMMIT: {sh: git rev-parse --verify HEAD}
   BUILD_FLAGS: -ldflags "-X main.VERSION={{.VERSION}} -X main.COMMIT={{.COMMIT}}"
 
@@ -38,11 +38,17 @@ tasks:
   container:
     deps: [test]
     cmds:
-      - docker build -t summerwind/{{.NAME}}:latest -t summerwind/{{.NAME}}:{{.VERSION}} 
+      - docker build -t paveltumik/{{.NAME}}:latest -t paveltumik/{{.NAME}}:{{.VERSION}} 
           --build-arg BUILD_FLAGS='{{.BUILD_FLAGS}}' .
+  publish:
+    deps: [container]
+    cmds:
+      - docker push paveltumik/{{.NAME}}:latest
+      - docker push paveltumik/{{.NAME}}:{{.VERSION}}
   vendor:
     cmds:
-      - dep ensure -v
+      - go mod tidy
+      - go mod vendor
   clean:
     cmds:
       - rm -rf {{.NAME}} dist cover.out
