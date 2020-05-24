@@ -2,7 +2,7 @@ version: '2'
 
 vars:
   NAME: alertmanager-sentry-gateway
-  VERSION: 0.5.0
+  VERSION: 0.5.1
   COMMIT: {sh: git rev-parse --verify HEAD}
   BUILD_FLAGS: -ldflags "-X main.VERSION={{.VERSION}} -X main.COMMIT={{.COMMIT}}"
 
