@@ -277,6 +277,24 @@ func getEventTags(alert amtemplate.Alert) map[string]string {
 	return tags
 }
 
+func getEventAlertLevel(alert amtemplate.Alert) sentry.Level {
+	for _, label := range alert.Labels.SortedPairs() {
+		if label.Name == "severity" {
+			switch label.Value {
+			case "info":
+				return sentry.LevelInfo
+			case "warning":
+				return sentry.LevelWarning
+			case "error":
+				return sentry.LevelError
+			case "critical":
+				return sentry.LevelFatal
+			}
+		}
+	}
+	return sentry.LevelError
+}
+
 func getEventFingerprint(alert amtemplate.Alert, fingerprintTemplates []*template.Template) []string {
 	var fingerprint []string
 	for _, fpTemplate := range fingerprintTemplates {
@@ -334,6 +352,7 @@ func worker(
 			event.Extra["ends_at"] = alert.EndsAt
 			event.Logger = "alertmanager"
 			event.Tags = getEventTags(alert)
+			event.Level = getEventAlertLevel(alert)
 			event.Fingerprint = getEventFingerprint(alert, fingerprintTemplates)
 
 			eventID := client.CaptureEvent(event, nil, nil)
