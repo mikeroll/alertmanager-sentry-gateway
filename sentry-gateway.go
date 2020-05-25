@@ -72,8 +72,9 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// always print version
+	version()
 	if v {
-		version()
 		os.Exit(0)
 	}
 
@@ -82,6 +83,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if debug {
+		log.Info("Enabling debug output")
 		log.SetLevel(log.DebugLevel)
 	}
 
@@ -357,9 +359,9 @@ func worker(
 
 			eventID := client.CaptureEvent(event, nil, nil)
 			if eventID != nil {
-				log.Printf("event_id:%s alert_name:%s\n", *eventID, alert.Labels["alertname"])
+				log.Printf("event_id:%s alert_name:%s, level:%s\n", *eventID, alert.Labels["alertname"], event.Level)
 			} else {
-				log.Errorf("Sentry capture event was dropped")
+				log.Errorf("Sentry capture event was dropped. alert_name:%s", alert.Labels["alertname"])
 			}
 		}
 	}
