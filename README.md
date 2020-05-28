@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/sagor999/alertmanager-sentry-gateway.svg?branch=master)](https://travis-ci.org/sagor999/alertmanager-sentry-gateway)
+[![Build Status](https://travis-ci.org/sagor999/alertmanager-sentry-gateway.svg?branch=master)](https://travis-ci.org/sagor999/alertmanager-sentry-gateway) [![GitHub tag](https://img.shields.io/github/tag/sagor999/alertmanager-sentry-gateway.svg)]()
 
 # alertmanager-sentry-gateway
 
