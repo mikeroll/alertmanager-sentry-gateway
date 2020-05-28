@@ -43,6 +43,7 @@ func main() {
 	cmd.Flags().StringP("dsn", "d", "", "Sentry DSN")
 	cmd.Flags().StringP("sentry-url", "u", "", "Sentry URL")
 	cmd.Flags().StringP("environment", "e", "", "Sentry Environment")
+	cmd.Flags().StringP("environment-label", "l", "", "Alert Label that contains sentry environment")
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
 	cmd.Flags().StringArrayP("fingerprint-templates", "f", []string{}, "List of templates to use as Sentry event fingerprint")
 	cmd.Flags().BoolP("dumb-timestamps", "s", false, "Whether to use time.Now instead of alert StartsAt/EndsAt")
@@ -61,9 +62,9 @@ func main() {
 }
 
 type gatewayRequest struct {
-	dsn     string
-	env     string
-	message *amtemplate.Data
+	dsn   string
+	env   string
+	alert amtemplate.Alert
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -103,6 +104,17 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	if defaultEnv == "" {
 		defaultEnv = os.Getenv("SENTRY_ENVIRONMENT")
+	}
+
+	envLabel, err := cmd.Flags().GetString("environment-label")
+	if err != nil {
+		return err
+	}
+	if envLabel == "" {
+		envLabel = os.Getenv("SENTRY_ENVIRONMENT_LABEL")
+	}
+	if envLabel != "" {
+		log.Infof("Using alert label '%s' to overwrite sentry environment", envLabel)
 	}
 
 	sentryURL, err := cmd.Flags().GetString("sentry-url")
@@ -214,7 +226,17 @@ func run(cmd *cobra.Command, args []string) error {
 			return
 		}
 
-		hookChan <- gatewayRequest{dsn, env, &wh}
+		for _, alert := range wh.Alerts {
+			alert_env := env
+			if envLabel != "" {
+				e := getSentryEnvironmentFromAlert(alert, envLabel)
+				if e != "" {
+					alert_env = e
+					log.Infof("Extracted sentry env: %s from alert: %s", alert_env, alert.Labels["alertname"])
+				}
+			}
+			hookChan <- gatewayRequest{dsn, alert_env, alert}
+		}
 	})
 
 	s := &http.Server{
@@ -297,6 +319,15 @@ func getEventAlertLevel(alert amtemplate.Alert) sentry.Level {
 	return sentry.LevelError
 }
 
+func getSentryEnvironmentFromAlert(alert amtemplate.Alert, env_label string) string {
+	for _, label := range alert.Labels.SortedPairs() {
+		if label.Name == env_label {
+			return label.Value
+		}
+	}
+	return ""
+}
+
 func getEventFingerprint(alert amtemplate.Alert, fingerprintTemplates []*template.Template) []string {
 	var fingerprint []string
 	for _, fpTemplate := range fingerprintTemplates {
@@ -322,15 +353,16 @@ func worker(
 	sentryClients := map[string]*sentry.Client{}
 
 	for req := range hookChan {
-		dsn, env, wh := req.dsn, req.env, req.message
+		dsn, env, alert := req.dsn, req.env, req.alert
 
-		client := sentryClients[dsn]
+		clientKey := dsn + env
+		client := sentryClients[clientKey]
 		if client == nil {
 			sentryOptions := sentry.ClientOptions{
 				Dsn:         dsn,
 				Environment: env}
 			if newClient, err := sentry.NewClient(sentryOptions); err == nil {
-				sentryClients[dsn] = newClient
+				sentryClients[clientKey] = newClient
 				client = newClient
 			} else {
 				fmt.Fprintf(os.Stderr, "Could not init Sentry client: %s\n", err)
@@ -338,31 +370,29 @@ func worker(
 			}
 		}
 
-		for _, alert := range wh.Alerts {
-			var buf bytes.Buffer
+		var buf bytes.Buffer
 
-			err := t.Execute(&buf, alert)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Invalid template: %s\n", err)
-				continue
-			}
+		err := t.Execute(&buf, alert)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid template: %s\n", err)
+			continue
+		}
 
-			event := sentry.NewEvent()
-			event.Message = buf.String()
-			event.Timestamp = getEventTimestamp(alert, dumbTimestamps)
-			event.Extra["starts_at"] = alert.StartsAt
-			event.Extra["ends_at"] = alert.EndsAt
-			event.Logger = "alertmanager"
-			event.Tags = getEventTags(alert)
-			event.Level = getEventAlertLevel(alert)
-			event.Fingerprint = getEventFingerprint(alert, fingerprintTemplates)
+		event := sentry.NewEvent()
+		event.Message = buf.String()
+		event.Timestamp = getEventTimestamp(alert, dumbTimestamps)
+		event.Extra["starts_at"] = alert.StartsAt
+		event.Extra["ends_at"] = alert.EndsAt
+		event.Logger = "alertmanager"
+		event.Tags = getEventTags(alert)
+		event.Level = getEventAlertLevel(alert)
+		event.Fingerprint = getEventFingerprint(alert, fingerprintTemplates)
 
-			eventID := client.CaptureEvent(event, nil, nil)
-			if eventID != nil {
-				log.Printf("event_id:%s alert_name:%s, level:%s\n", *eventID, alert.Labels["alertname"], event.Level)
-			} else {
-				log.Errorf("Sentry capture event was dropped. alert_name:%s", alert.Labels["alertname"])
-			}
+		eventID := client.CaptureEvent(event, nil, nil)
+		if eventID != nil {
+			log.Infof("event_id:%s alert_name:%s, level:%s, env: %s\n", *eventID, alert.Labels["alertname"], event.Level, env)
+		} else {
+			log.Errorf("Sentry capture event was dropped. alert_name:%s", alert.Labels["alertname"])
 		}
 	}
 }
