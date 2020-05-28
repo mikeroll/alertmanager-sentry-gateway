@@ -59,6 +59,13 @@ If you are using DSN proxying, then there is also a way to specify environment v
 `http://a1b2c3d4e5f6@sentry.gateway:9096/42/my_environment`
 Replace `my_environment` with any other valid string, and gateway will pass that environment with event.
 
+### Sentry environment from alert label
+There is also a third way to specify sentry environment, which would come from alert label itself. You can specify alert label via command line argument: `environment-label` or via environment variable: `SENTRY_ENVIRONMENT_LABEL`.  
+For example:
+You have alert with label `my-label` which has value `my-sentry-environment`. 
+Then you specify it like so: `--environment-label=my-label` and if alert coming in has this label, it will set sentry environment for that alert equal to the value of that label.  
+This overwrites any existing sentry environment which was set via URL or `--environment` argument. So that allows to ingest alerts that might not have that label, in that case they will use sentry environment from previous methods.
+
 
 ### Event body
 Event body of Sentry can be customized with a template file as follows. The data passed to the template file is an [Alert](https://godoc.org/github.com/prometheus/alertmanager/template#Alert) of Alertmanager.
