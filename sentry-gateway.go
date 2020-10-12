@@ -47,6 +47,7 @@ func main() {
 	cmd.Flags().StringP("template", "t", "", "Path of the template file of event message")
 	cmd.Flags().StringArrayP("fingerprint-templates", "f", []string{}, "List of templates to use as Sentry event fingerprint")
 	cmd.Flags().BoolP("dumb-timestamps", "s", false, "Whether to use time.Now instead of alert StartsAt/EndsAt")
+	cmd.Flags().StringP("level-tag", "l", "", "Specify the tag to use as Sentry event level")
 	cmd.Flags().StringP("addr", "a", "", "Address to listen on for WebHook")
 	cmd.Flags().Bool("version", false, "Display version information and exit")
 
@@ -141,6 +142,17 @@ func run(cmd *cobra.Command, args []string) error {
 		fingerprintTemplates = strings.Split(os.Getenv("SENTRY_GATEWAY_FINGERPRINT_TEMPLATES"), ",")
 	}
 
+	eventLevelTag, err := cmd.Flags().GetString("level-tag")
+	if err != nil {
+		return err
+	}
+
+	if eventLevelTag == "" {
+		if envEventLevelTag := os.Getenv("SENTRY_GATEWAY_EVENT_LEVEL_TAG"); envEventLevelTag != "" {
+			eventLevelTag = envEventLevelTag
+		}
+	}
+
 	var fpTemplates []*template.Template
 	for _, templateString := range fingerprintTemplates {
 		fpTemplate, err := createTemplate(templateString)
@@ -199,7 +211,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	go worker(hookChan, t, fpTemplates, dumbTimestamps)
+	go worker(hookChan, t, fpTemplates, dumbTimestamps, eventLevelTag)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -267,6 +279,7 @@ func worker(
 	t *template.Template,
 	fingerprintTemplates []*template.Template,
 	dumbTimestamps bool,
+	eventLevelTag string,
 ) {
 	ravenClients := map[string]*raven.Client{}
 
@@ -303,6 +316,7 @@ func worker(
 				Logger:      "alertmanager",
 				Tags:        getEventTags(alert),
 				Fingerprint: getEventFingerprint(alert, fingerprintTemplates),
+				Level:       raven.Severity(alert.Labels[eventLevelTag]),
 			}
 
 			eventID, ch := client.Capture(packet, alert.Labels)

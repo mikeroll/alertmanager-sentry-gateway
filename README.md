@@ -44,7 +44,7 @@ $ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --environment ${SENTRY_ENVIRON
 If you prefer configuration via environment variables, exporting `SENTRY_DSN` and `SENTRY_ENVIRONMENT` to the process will have the same effect - you can then omit the cli arguments entirely.
 
 ### DSN proxying
-It is possible to support forwarding events to any Sentry DSN (as opposed to locking the gateway into a single one via `SENTRY_DSN`). To enable such DSN proxying, provide the base url of the target Sentry instance via `--sentry-url`/`SENTRY_URL`. Gateway url can the be specified as follows, similar to a "real" DSN:  
+It is possible to support forwarding events to any Sentry DSN (as opposed to locking the gateway into a single one via `SENTRY_DSN`). To enable such DSN proxying, provide the base url of the target Sentry instance via `--sentry-url`/`SENTRY_URL`. Gateway url can the be specified as follows, similar to a "real" DSN:
 ```
 <gateway_scheme>//<project_secret>@<gateway_host>/<project_id>
 ```
@@ -84,6 +84,11 @@ $ alertmanager-sentry-gateway --fingerprint-templates "{{ .Labels.instance }}" "
 will cause events with the same `alertname` and `instance` labels to be grouped into a single issue.
 If `--fingerprint-templates` is not supplied, Sentry's default algorithm is used.
 
+### Event level
+Sentry events require a level attribute, if it's not specified the value `error` is used by default. The value can be set by specifying a key from the event's tags to be used. It can be set with the argument `--level-tag` or with the environment variable `SENTRY_GATEWAY_EVENT_LEVEL_TAG` For example:
+```
+$ alertmanager-sentry-gateway --level-tag "severity"
+```
 
 ## Alertmanager Configuration
 
