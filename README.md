@@ -87,9 +87,9 @@ Labels:
 $ alertmanager-sentry-gateway --dsn ${SENTRY_DSN} --template template.tmpl
 ```
 
-Alternatively, provide a `SENTRY_EVENT_TEMPLATE` variable with the template string:
+Alternatively, provide a `SENTRY_GATEWAY_TEMPLATE` variable with the template string:
 ```
-$ export SENTRY_EVENT_TEMPLATE="{{ .Labels.alertname }} - {{ .Labels.instance }}"
+$ export SENTRY_GATEWAY_TEMPLATE="{{ .Labels.alertname }} - {{ .Labels.instance }}"
 $ alertmanager-sentry-gateway
 ```
 
