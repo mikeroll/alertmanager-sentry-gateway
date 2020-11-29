@@ -4,7 +4,6 @@ os: linux
 go:
   - "1.13.x"
 before_install:
-  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
   - curl https://raw.githubusercontent.com/go-task/task/master/install-task.sh | sh
   - mv ./bin/task $GOPATH/bin
 install:
@@ -15,9 +14,9 @@ before_deploy:
   - task dist
 deploy:
   provider: releases
-  token: $GITHUB_TOKEN
+  api_key: $GITHUB_TOKEN
   file_glob: true
   file: dist/*
-  cleanup: false
+  skip_cleanup: true
   on:
     tags: true

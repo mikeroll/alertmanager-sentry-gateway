@@ -38,13 +38,8 @@ tasks:
   container:
     deps: [test]
     cmds:
-      - docker build -t paveltumik/{{.NAME}}:latest -t paveltumik/{{.NAME}}:{{.VERSION}} 
+      - docker build -t summerwind/{{.NAME}}:latest -t summerwind/{{.NAME}}:{{.VERSION}} 
           --build-arg BUILD_FLAGS='{{.BUILD_FLAGS}}' .
-  publish:
-    deps: [container]
-    cmds:
-      - docker push paveltumik/{{.NAME}}:latest
-      - docker push paveltumik/{{.NAME}}:{{.VERSION}}
   vendor:
     cmds:
       - go mod tidy

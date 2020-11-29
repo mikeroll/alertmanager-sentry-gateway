@@ -15,9 +15,6 @@ $ docker pull summerwind/alertmanager-sentry-gateway:<tag>
 
 # >= v0.4.0
 $ docker pull mikeroll/alertmanager-sentry-gateway:<tag>
-
-# >= v0.5.0
-$ docker pull paveltumik/alertmanager-sentry-gateway:<tag>
 ```
 
 ### Building binary yourself
