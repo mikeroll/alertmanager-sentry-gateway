@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/sagor999/alertmanager-sentry-gateway.svg?branch=master)](https://travis-ci.org/sagor999/alertmanager-sentry-gateway) [![GitHub tag](https://img.shields.io/github/tag/sagor999/alertmanager-sentry-gateway.svg)]()
-
 # alertmanager-sentry-gateway
 
 alertmanager-sentry-gateway is a webhook gateway for [Alertmanager](https://github.com/prometheus/alertmanager). This gateway receives webhooks from Alertmanager and sends alert information as an event to [Sentry](https://sentry.io).
@@ -8,7 +6,7 @@ alertmanager-sentry-gateway is a webhook gateway for [Alertmanager](https://gith
 
 ### Just want the binary?
 
-Go to the [releases page](https://github.com/sagor999/alertmanager-sentry-gateway/releases), find the version you want, and download the tarball file.
+Go to the [releases page](https://github.com/mikeroll/alertmanager-sentry-gateway/releases), find the version you want, and download the tarball file.
 
 ### Run as container?
 ```
@@ -17,9 +15,6 @@ $ docker pull summerwind/alertmanager-sentry-gateway:<tag>
 
 # <= v0.4.0
 $ docker pull mikeroll/alertmanager-sentry-gateway:<tag>
-
-# >= v0.5.0
-$ docker pull paveltumik/alertmanager-sentry-gateway:<tag>
 ```
 
 ### Building binary yourself

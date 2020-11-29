@@ -1,4 +1,4 @@
-module github.com/sagor999/alertmanager-sentry-gateway
+module github.com/mikeroll/alertmanager-sentry-gateway
 
 go 1.13
 
